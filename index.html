@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Calories · Toma & Soph</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Firebase SDK (compat v9) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <!-- Storage supprimé -->
+</head>
+<body>
+
+<!-- ── Écran de chargement ───────────────────────────────── -->
+<div id="loading-screen">
+  <div class="loading-logo">
+    <span>Toma</span> &amp; <span>Soph</span>
+  </div>
+  <div class="loading-spinner"></div>
+</div>
+
+<!-- ── Application ──────────────────────────────────────── -->
+<div id="app">
+
+  <!-- Header -->
+  <header id="app-header">
+    <div class="app-title">
+      <span class="t">T</span>oma &amp; <span class="s">S</span>oph · Calories
+    </div>
+  </header>
+
+  <!-- Contenu des onglets -->
+  <main>
+
+    <!-- Dashboard -->
+    <div id="tab-dashboard" class="tab-content active">
+      <p class="loading">Chargement...</p>
+    </div>
+
+    <!-- Ingrédients -->
+    <div id="tab-ingredients" class="tab-content">
+      <p class="loading">Chargement...</p>
+    </div>
+
+    <!-- Recettes -->
+    <div id="tab-recipes" class="tab-content" data-subtab="mine">
+      <p class="loading">Chargement...</p>
+    </div>
+
+    <!-- Historique -->
+    <div id="tab-history" class="tab-content">
+      <p class="loading">Chargement...</p>
+    </div>
+
+  </main>
+
+  <!-- Navigation bas de page -->
+  <nav id="bottom-nav">
+    <button class="nav-btn active" data-tab="dashboard">
+      <span class="nav-icon">🏠</span>
+      <span>Accueil</span>
+    </button>
+    <button class="nav-btn" data-tab="ingredients">
+      <span class="nav-icon">🥦</span>
+      <span>Aliments</span>
+    </button>
+    <button class="nav-btn" data-tab="recipes">
+      <span class="nav-icon">📖</span>
+      <span>Recettes</span>
+    </button>
+    <button class="nav-btn" data-tab="history">
+      <span class="nav-icon">📅</span>
+      <span>Historique</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- Modal overlay -->
+<div id="modal-overlay"></div>
+
+<!-- Toast notifications -->
+<div id="toast"></div>
+
+<!-- Scripts -->
+<script src="firebase.js"></script>
+<script src="ingredients.js"></script>
+<script src="recipes.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
