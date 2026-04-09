@@ -215,6 +215,15 @@ function renderDashboard() {
           </div>
         </div>
 
+        <div class="burned-summary">
+          <div class="burned-title">🔥 Calories dépensées aujourd'hui</div>
+          <div class="burned-row"><span>Métabolisme de base</span><span>${calcTDEE(profile)} kcal</span></div>
+          ${(data.activities || []).reduce((s,a) => s+(a.kcal||0), 0) > 0 ? `<div class="burned-row"><span>Activités physiques</span><span>+${(data.activities||[]).reduce((s,a)=>s+(a.kcal||0),0)} kcal</span></div>` : ''}
+          ${Math.round((steps||0)*0.04) > 0 ? `<div class="burned-row"><span>Pas (${steps.toLocaleString('fr-FR')} pas)</span><span>+${Math.round((steps||0)*0.04)} kcal</span></div>` : ''}
+          <div class="burned-row total"><span>Total dépensé</span><span>${allowed} kcal</span></div>
+          <div class="burned-balance" style="color:${remaining >= 0 ? 'var(--success)' : '#ff6b6b'}">${remaining >= 0 ? '+' + remaining + ' kcal de déficit 🔥' : Math.abs(remaining) + ' kcal en excès ⚠️'}</div>
+        </div>
+
         <div class="meals-today">
           <div class="section-label">Repas du jour</div>
           ${(data.meals || []).length === 0
@@ -375,6 +384,73 @@ async function renderHistory() {
       return;
     }
 
+    // Grouper les dates par semaine (lundi → dimanche)
+    function getWeekKey(dateStr) {
+      const d = new Date(dateStr + 'T00:00:00');
+      const day = d.getDay() === 0 ? 6 : d.getDay() - 1; // lundi = 0
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - day);
+      return monday.toISOString().split('T')[0];
+    }
+
+    function getWeekLabel(mondayStr) {
+      const monday = new Date(mondayStr + 'T00:00:00');
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const fmt = (d) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+      return `Semaine du ${fmt(monday)} au ${fmt(sunday)}`;
+    }
+
+    function renderWeekSummary(weekDates, daysData) {
+      const personSummary = (person) => {
+        const profile = STATE.profiles[person];
+        const color = person === 'toma' ? 'var(--accent-toma)' : 'var(--accent-soph)';
+        let totalEaten = 0, totalBurned = 0, daysCount = 0;
+        weekDates.forEach(date => {
+          const data = daysData[date]?.[person];
+          if (!data) return;
+          daysCount++;
+          totalEaten += (data.meals || []).reduce((s, m) => s + (m.totalKcal || 0), 0);
+          const tdee = calcTDEE(profile);
+          const actKcal = (data.activities || []).reduce((s, a) => s + (a.kcal || 0), 0);
+          const stepsKcal = Math.round((data.steps || 0) * 0.04);
+          totalBurned += tdee + actKcal + stepsKcal;
+        });
+        if (daysCount === 0) return '';
+        const balance = totalBurned - totalEaten;
+        const balanceColor = balance >= 0 ? 'var(--success)' : '#ff6b6b';
+        const balanceText = balance >= 0
+          ? `Déficit de ${balance} kcal sur la semaine 🔥`
+          : `Excès de ${Math.abs(balance)} kcal sur la semaine ⚠️`;
+        return `
+          <div class="week-person-row">
+            <span class="history-avatar" style="background:${color}">${profile.name[0]}</span>
+            <div class="week-person-data">
+              <span class="week-person-name">${profile.name}</span>
+              <div class="week-stats">
+                <span class="hchip">🍽 ${totalEaten} kcal consommées</span>
+                <span class="hchip">🔥 ${totalBurned} kcal dépensées</span>
+              </div>
+              <div class="week-balance" style="color:${balanceColor}">${balanceText}</div>
+            </div>
+          </div>`;
+      };
+      return `
+        <div class="week-summary-card">
+          <div class="week-summary-title">📊 Récap hebdomadaire</div>
+          ${personSummary('toma')}
+          ${personSummary('soph')}
+        </div>`;
+    }
+
+    // Grouper par semaine
+    const byWeek = {};
+    sortedDates.forEach(date => {
+      const wk = getWeekKey(date);
+      if (!byWeek[wk]) byWeek[wk] = [];
+      byWeek[wk].push(date);
+    });
+
     const html = sortedDates.map(date => {
       const dayData = days[date];
       const personRow = (person) => {
@@ -400,12 +476,20 @@ async function renderHistory() {
             </div>
           </div>`;
       };
+
+      // Afficher le récap semaine après le dimanche (ou dernier jour de la semaine disponible)
+      const wk = getWeekKey(date);
+      const weekDates = byWeek[wk];
+      const isLastDayOfWeek = weekDates[weekDates.length - 1] === date;
+      const weekSummaryHtml = isLastDayOfWeek ? renderWeekSummary(weekDates, days) : '';
+
       return `
         <div class="history-day-card">
           <div class="history-day-title">${formatDate(date)}</div>
           ${personRow('toma')}
           ${personRow('soph')}
-        </div>`;
+        </div>
+        ${weekSummaryHtml}`;
     }).join('');
 
     container.innerHTML = `<div class="section-header"><h2>Historique</h2></div><div class="history-list">${html}</div>`;
@@ -626,6 +710,19 @@ function addIngredientToMeal(ingId) {
 
 function updateIngredientGrams(idx, val) {
   STATE.mealDraft.ingredients[idx].grams = Math.max(1, parseInt(val) || 1);
+  const totalKcal = STATE.mealDraft.ingredients.reduce(
+    (s, i) => s + Math.round(i.kcal * i.grams / 100), 0
+  );
+  const totalEl = document.querySelector('.meal-total');
+  if (totalEl) {
+    const person = STATE.mealDraft.person;
+    totalEl.innerHTML = `Total : <strong>${totalKcal} kcal</strong>${person === 'both' ? ` (${Math.round(totalKcal / 2)} kcal chacun)` : ''}`;
+  }
+  const rows = document.querySelectorAll('.ing-meal-row');
+  if (rows[idx]) {
+    rows[idx].querySelector('.ing-meal-kcal').textContent =
+      Math.round(STATE.mealDraft.ingredients[idx].kcal * STATE.mealDraft.ingredients[idx].grams / 100) + ' kcal';
+  }
 }
 
 function removeIngredient(idx) {
